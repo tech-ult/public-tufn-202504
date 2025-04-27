@@ -1,0 +1,116 @@
+version: '3'
+
+services:
+  # Monitoring stack with Prometheus, Grafana, PostgreSQL, Nginx, and exporters
+  # prometheus server
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+
+  # grafana server
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin # 初期パスワード。adminユーザーでログイン後にパスワードを再設定する
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  # exporter for PostgreSQL
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter
+    container_name: postgres_exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://user:password@postgres:5432/dbname?sslmode=disable
+    networks:
+      - monitoring
+    expose:
+      - "9187"
+
+  # exporter for Nginx
+  nginx_exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx_exporter
+    command:
+      - '-nginx.scrape-uri=http://nginx/stub_status'
+    ports:
+      - "9113:9113"
+    depends_on:
+      - nginx
+    networks:
+      - monitoring
+
+  # exporter for Host Metrics
+  node_exporter:
+    image: prom/node-exporter
+    container_name: node_exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+    volumes:
+      - /proc:/host/proc:ro # プロセスやCPUなどシステム情報
+      - /sys:/host/sys:ro   # デバイス情報、カーネル情報
+      - /:/rootfs:ro        # ファイルシステム情報
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+
+  # Nginx server
+  nginx:
+    build:
+      context: ./nginx
+    container_name: nginx_server
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - monitoring
+    depends_on:
+      - webapp
+    entrypoint: ["bash", "-c", "/usr/local/bin/wait-for-it.sh webapp:3001 -- nginx -g 'daemon off;'"]
+
+  # PostgreSQL server
+  postgres:
+    image: postgres:latest
+    container_name: postgres_server
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=dbname
+    volumes:
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    ports:
+      - "5432:5432"
+    networks:
+      - monitoring
+
+  # Node.js Web Application
+  webapp:
+    build:
+      context: ./app  # Node.jsアプリケーションのソースコードがあるディレクトリを指定
+    container_name: nodejs_webapp
+    ports:
+      - "3001:3001"  # 例としてポート3001を公開
+    depends_on:
+      - postgres
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
