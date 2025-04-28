@@ -11,8 +11,8 @@ RUN npm install  # コンテナ内で依存関係をインストール
 # アプリケーションのソースコードをコピー
 COPY . .
 
-# wait-for-it.sh をコピー
-COPY ./wait-for-it.sh /usr/local/bin/
+# wait-for-it.sh をダウンロードして実行権限を付与
+ADD https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh /usr/local/bin/wait-for-it.sh
 RUN chmod +x /usr/local/bin/wait-for-it.sh
 
 EXPOSE 3001
