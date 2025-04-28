@@ -1,11 +1,13 @@
 groups:
-  - name: node_alerts
-    rules:
-      - alert: HighCPUUsage
-        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
-        for: 2m
+  - name: node_alerts             # アラートグループの名前。複数のアラートルールをグループ化するための名前
+    rules:                        # このグループに関連付けられたアラートルールのリスト
+      - alert: HighCPUUsage       # アラートの名前。Slackなどで通知される名前
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80  # 80%を超えるCPU使用率
+        #expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 1  # CPU使用率が1%を超える場合にアラート
+        for: 2m                   # この条件を2分間満たし続ける場合にアラートを発火させる
+        #for: 1m                   # この条件を1分間満たし続ける場合にアラートを発火させる
         labels:
-          severity: warning
+          severity: warning       # アラートの重大度を "warning"（警告）に設定。例えば、Slackの通知で表示される
         annotations:
-          summary: "High CPU usage detected on {{ $labels.instance }}"
-          description: "CPU usage is above 80% for more than 2 minutes."
+          summary: "High CPU usage detected on {{ $labels.instance }}"    # アラート通知の概要（例: "node1"で高いCPU使用率を検出）
+          description: "CPU usage is above 80% for more than 2 minutes."  # アラートの詳細説明。実際に発火する条件（CPU使用率が80%を超えた場合）

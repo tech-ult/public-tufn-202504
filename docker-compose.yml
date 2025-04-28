@@ -24,8 +24,6 @@ services:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
     networks:
       - monitoring
-    env_file:
-      - .env
 
   # grafana server
   grafana:
