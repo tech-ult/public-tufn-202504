@@ -11,3 +11,63 @@ groups:
         annotations:
           summary: "High CPU usage detected on {{ $labels.instance }}"    # アラート通知の概要（例: "node1"で高いCPU使用率を検出）
           description: "CPU usage is above 80% for more than 2 minutes."  # アラートの詳細説明。実際に発火する条件（CPU使用率が80%を超えた場合）
+
+  - name: nginx_alerts
+    rules:
+      - alert: AnyHttp5xxErrorDetected   # 5xxエラーが1回でも発生した場合のアラート
+        expr: |
+          sum(rate(nginx_http_response_count_total{status=~"5.."}[30s])) > 0
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx error detected"
+          description: "At least one HTTP 5xx error occurred in the last 30 seconds."
+
+      - alert: HighHttp4xxErrorRate    # 4xxエラー率が高い場合のアラート
+        expr: |
+          (sum(rate(nginx_http_response_count_total{status=~"4.."}[1m])))
+          /
+          (sum(rate(nginx_http_response_count_total[1m])))
+          > 0.10
+#        for: 2m
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 4xx error rate detected"
+          description: "The HTTP 4xx error rate has exceeded 10% over the past 2 minutes."
+
+  # PostgreSQLのスロークエリアラート用に新しいグループを追加
+  - name: postgres_alerts
+    rules:
+      # スロークエリを検知するアラート
+      - alert: PostgresSlowQuery
+#        expr: pg_slow_queries_duration > 5  # 5秒以上実行されているクエリを検知
+        expr: pg_slow_queries_duration > 2  # 1秒以上実行されているクエリを検知
+        for: 0s  # 検知したらすぐにアラート
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow PostgreSQL query detected"
+          description: "Database: {{ $labels.database }}, User: {{ $labels.user }}, Query duration: {{ $value }}s, Query: {{ $labels.query }}"
+
+      # 長時間（30秒以上）実行されているクエリに対する重大アラート
+      - alert: PostgresCriticalSlowQuery
+        expr: pg_slow_queries_duration > 30  # 30秒以上実行されているクエリを検知
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical slow PostgreSQL query detected"
+          description: "Database: {{ $labels.database }}, User: {{ $labels.user }}, Query duration: {{ $value }}s, Query: {{ $labels.query }}"
+
+      # アクティブな接続数が多い場合のアラート
+      - alert: PostgresHighConnections
+        expr: pg_stat_activity_count > 100  # 接続数が100を超えた場合
+        for: 5m  # 5分間継続した場合
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of PostgreSQL connections"
+          description: "Database {{ $labels.datname }} has {{ $value }} active connections"

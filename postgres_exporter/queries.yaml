@@ -1,0 +1,37 @@
+pg_slow_queries:
+  query: |
+    SELECT
+      datname AS database,
+      pid,
+      usename AS user,
+      application_name,
+      client_addr,
+      state,
+      now() - query_start AS duration,
+      wait_event_type,
+      wait_event,
+      query
+    FROM pg_stat_activity
+    WHERE state = 'active'
+      AND now() - query_start > '3 seconds'::interval  -- スロークエリの閾値（ここでは3秒）
+      AND query != '<IDLE>'
+      AND query NOT ILIKE '%pg_stat_activity%'
+  metrics:
+    - database:
+        usage: "LABEL"
+        description: "Database name"
+    - user:
+        usage: "LABEL"
+        description: "User name"
+    - pid:
+        usage: "LABEL"
+        description: "Process ID"
+    - application_name:
+        usage: "LABEL"
+        description: "Application name"
+    - duration:
+        usage: "GAUGE"
+        description: "Query duration in seconds"
+    - query:
+        usage: "LABEL"
+        description: "Query text"

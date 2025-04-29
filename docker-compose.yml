@@ -44,6 +44,10 @@ services:
     container_name: postgres_exporter
     environment:
       - DATA_SOURCE_NAME=postgresql://user:password@postgres:5432/dbname?sslmode=disable
+      # スロークエリ関連のメトリクスを有効化
+      - PG_EXPORTER_EXTEND_QUERY_PATH=/etc/postgres_exporter/queries.yaml
+    volumes:
+      - ./postgres_exporter/queries.yaml:/etc/postgres_exporter/queries.yaml
     networks:
       - monitoring
     expose:
