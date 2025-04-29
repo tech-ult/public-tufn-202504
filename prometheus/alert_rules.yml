@@ -44,7 +44,7 @@ groups:
       # スロークエリを検知するアラート
       - alert: PostgresSlowQuery
 #        expr: pg_slow_queries_duration > 5  # 5秒以上実行されているクエリを検知
-        expr: pg_slow_queries_duration > 2  # 1秒以上実行されているクエリを検知
+        expr: pg_slow_queries_duration > 1  # 1秒以上実行されているクエリを検知
         for: 0s  # 検知したらすぐにアラート
         labels:
           severity: warning

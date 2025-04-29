@@ -115,10 +115,10 @@ app.get('/schema', async (req, res, next) => {
   }
 });
 
-// /user → 5秒待ってからユーザー一覧
+// /user → 20秒待ってからユーザー一覧
 app.get('/user', async (req, res, next) => {
   try {
-    await client.query('SELECT pg_sleep(5)'); // 5秒待つ(スロークエリ)
+    await client.query('SELECT pg_sleep(20)'); // 20秒待つ(スロークエリ)
     const result = await client.query('SELECT usename FROM pg_user');
     res.json(result.rows);
   } catch (err) {

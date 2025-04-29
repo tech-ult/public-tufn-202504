@@ -5,15 +5,11 @@ pg_slow_queries:
       pid,
       usename AS user,
       application_name,
-      client_addr,
-      state,
-      now() - query_start AS duration,
-      wait_event_type,
-      wait_event,
+      EXTRACT(EPOCH FROM now() - query_start) AS duration,
       query
     FROM pg_stat_activity
     WHERE state = 'active'
-      AND now() - query_start > '3 seconds'::interval  -- スロークエリの閾値（ここでは3秒）
+      AND now() - query_start > '3 seconds'::interval
       AND query != '<IDLE>'
       AND query NOT ILIKE '%pg_stat_activity%'
   metrics:
