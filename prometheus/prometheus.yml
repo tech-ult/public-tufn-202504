@@ -17,6 +17,11 @@ scrape_configs:
     static_configs:
       - targets: ['prometheus:9090']
 
+  # Pushgateway（短命ジョブのメトリクス）
+  - job_name: 'pushgateway'
+    static_configs:
+      - targets: ['pushgateway:9091']
+
   # Node Exporter（ホストOSのメトリクス）
   - job_name: 'node_exporter'
     static_configs:
