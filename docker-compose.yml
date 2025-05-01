@@ -151,6 +151,16 @@ services:
     networks:
       - monitoring
 
+  # Blackbox Exporter
+  blackbox_exporter:
+    image: prom/blackbox-exporter
+    container_name: blackbox_exporter
+    ports:
+      - "9115:9115"  # デフォルトポート
+    networks:
+      - monitoring
+
+
 networks:
   monitoring:
     driver: bridge

@@ -40,3 +40,20 @@ scrape_configs:
   - job_name: 'nginx-log'
     static_configs:
       - targets: ['nginx-log-exporter:4040']
+
+  # Blackbox Exporter（外部プローブ監視）
+  - job_name: 'blackbox_http_2xx'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]   # 使うプローブモジュール（デフォルトで http_2xx が入ってる）
+    static_configs:
+      - targets:
+          - http://nginx/schema
+          - http://nginx/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox_exporter:9115  # Blackbox Exporterに問い合わせる

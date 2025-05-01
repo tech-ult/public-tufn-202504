@@ -126,6 +126,24 @@ app.get('/user', async (req, res, next) => {
   }
 });
 
+// --- /health チェックエンドポイント ---
+app.get('/health', async (req, res, next) => {
+  try {
+    const result = await client.query('SELECT 1');  // シンプルに"SELECT 1"だけ
+    
+    res.json({
+      status: 'ok',
+      postgres: result.rowCount > 0 ? 'connected' : 'no rows',
+    });
+  } catch (err) {
+    console.error('Health check failed:', err.stack);
+    res.status(500).json({
+      status: 'error',
+      message: 'Database connection failed',
+    });
+  }
+});
+
 // エラー用エンドポイント
 app.get('/error404', (req, res, next) => {
   next(new AppError('Resource not found', 404));

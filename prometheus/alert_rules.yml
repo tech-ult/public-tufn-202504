@@ -71,3 +71,23 @@ groups:
         annotations:
           summary: "High number of PostgreSQL connections"
           description: "Database {{ $labels.datname }} has {{ $value }} active connections"
+
+  - name: blackbox_alerts
+    rules:
+      - alert: HealthEndpointDown
+        expr: probe_success{instance="http://nginx/health"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Health endpoint is down"
+          description: "The /health endpoint at web api has been failing for more than 1 minute."
+
+      - alert: HealthEndpointHighLatency
+        expr: probe_duration_seconds{instance="http://nginx/health"} > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected on health endpoint"
+          description: "The /health endpoint at web api is taking more than 5 seconds to respond."
