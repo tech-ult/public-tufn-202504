@@ -15,6 +15,7 @@ services:
       - monitoring
 
   # alertmanager server
+  # This service is used to manage alerts and send notifications.
   alertmanager:
     image: prom/alertmanager
     container_name: alertmanager
@@ -26,6 +27,7 @@ services:
       - monitoring
 
   # grafana server
+  # This service is used to visualize metrics and create dashboards.
   grafana:
     image: grafana/grafana
     container_name: grafana
@@ -38,7 +40,8 @@ services:
     networks:
       - monitoring
 
-  # Pushgateway server ← 追加
+  # Pushgateway server
+  # This service is used to push metrics from batch jobs to Prometheus.
   pushgateway:
     image: prom/pushgateway
     container_name: pushgateway
@@ -47,49 +50,8 @@ services:
     networks:
       - monitoring
 
-  # exporter for PostgreSQL
-  postgres_exporter:
-    image: prometheuscommunity/postgres-exporter
-    container_name: postgres_exporter
-    environment:
-      - DATA_SOURCE_NAME=postgresql://user:password@postgres:5432/dbname?sslmode=disable
-      - PG_EXPORTER_EXTEND_QUERY_PATH=/etc/postgres_exporter/queries.yaml
-    volumes:
-      - ./postgres_exporter/queries.yaml:/etc/postgres_exporter/queries.yaml
-    networks:
-      - monitoring
-    expose:
-      - "9187"
-
-  # exporter for Nginx
-  nginx_exporter:
-    image: nginx/nginx-prometheus-exporter:latest
-    container_name: nginx_exporter
-    command:
-      - '-nginx.scrape-uri=http://nginx/stub_status'
-    ports:
-      - "9113:9113"
-    depends_on:
-      - nginx
-    networks:
-      - monitoring
-
-  nginx-log-exporter:
-    image: quay.io/martinhelmich/prometheus-nginxlog-exporter:v1
-    container_name: nginx-log-exporter
-    command:
-      - '-config-file=/etc/config.yaml'
-    volumes:
-      - ./nginx-log-exporter/config.yaml:/etc/config.yaml:ro
-      - ./nginx/logs:/var/log/nginx:ro
-    ports:
-      - "9114:4040"
-    networks:
-      - monitoring
-    depends_on:
-      - nginx
-
   # exporter for Host Metrics
+  # This service is used to collect metrics from the host system and expose them to Prometheus.
   node_exporter:
     image: prom/node-exporter
     container_name: node_exporter
@@ -123,6 +85,49 @@ services:
       - webapp
     entrypoint: ["bash", "-c", "/usr/local/bin/wait-for-it.sh webapp:3001 -- nginx -g 'daemon off;'"]
 
+  # Node.js Web Application
+  webapp:
+    build:
+      context: ./app
+    container_name: nodejs_webapp
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+    networks:
+      - monitoring
+
+  # exporter for Nginx
+  # This service is used to collect metrics from Nginx and expose them to Prometheus.
+  nginx_exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx_exporter
+    command:
+      - '-nginx.scrape-uri=http://nginx/stub_status'
+    ports:
+      - "9113:9113"
+    depends_on:
+      - nginx
+    networks:
+      - monitoring
+
+  # exporter for Nginx logs
+  # This service is used to collect logs from Nginx and expose them to Prometheus.
+  nginx-log-exporter:
+    image: quay.io/martinhelmich/prometheus-nginxlog-exporter:v1
+    container_name: nginx-log-exporter
+    command:
+      - '-config-file=/etc/config.yaml'
+    volumes:
+      - ./nginx-log-exporter/config.yaml:/etc/config.yaml:ro
+      - ./nginx/logs:/var/log/nginx:ro
+    ports:
+      - "9114:4040"
+    networks:
+      - monitoring
+    depends_on:
+      - nginx
+
   # PostgreSQL server
   postgres:
     image: postgres:latest
@@ -139,19 +144,24 @@ services:
     networks:
       - monitoring
 
-  # Node.js Web Application
-  webapp:
-    build:
-      context: ./app
-    container_name: nodejs_webapp
-    ports:
-      - "3001:3001"
-    depends_on:
-      - postgres
+  # exporter for PostgreSQL
+  # This service is used to collect metrics from PostgreSQL and expose them to Prometheus.
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter
+    container_name: postgres_exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://user:password@postgres:5432/dbname?sslmode=disable
+      - PG_EXPORTER_EXTEND_QUERY_PATH=/etc/postgres_exporter/queries.yaml
+    volumes:
+      - ./postgres_exporter/queries.yaml:/etc/postgres_exporter/queries.yaml
     networks:
       - monitoring
+    expose:
+      - "9187"
 
-  # Blackbox Exporter
+  # Blackbox Exporter for HTTP(S) and TCP checks
+  # This service is used to check the health of the Nginx server and other endpoints
+  # and to monitor the response time of the health check endpoint.
   blackbox_exporter:
     image: prom/blackbox-exporter
     container_name: blackbox_exporter
@@ -159,7 +169,6 @@ services:
       - "9115:9115"  # デフォルトポート
     networks:
       - monitoring
-
 
 networks:
   monitoring:
