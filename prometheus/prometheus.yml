@@ -39,7 +39,7 @@ scrape_configs:
 
   - job_name: 'nginx-log'
     static_configs:
-      - targets: ['nginx-log-exporter:4040']
+      - targets: ['nginx_log_exporter:4040']
 
   # Blackbox Exporter（外部プローブ監視）
   - job_name: 'blackbox_http_2xx'

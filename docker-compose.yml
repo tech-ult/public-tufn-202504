@@ -113,13 +113,13 @@ services:
 
   # exporter for Nginx logs
   # This service is used to collect logs from Nginx and expose them to Prometheus.
-  nginx-log-exporter:
+  nginx_log_exporter:
     image: quay.io/martinhelmich/prometheus-nginxlog-exporter:v1
-    container_name: nginx-log-exporter
+    container_name: nginx_log_exporter
     command:
       - '-config-file=/etc/config.yaml'
     volumes:
-      - ./nginx-log-exporter/config.yaml:/etc/config.yaml:ro
+      - ./nginx_log_exporter/config.yaml:/etc/config.yaml:ro
       - ./nginx/logs:/var/log/nginx:ro
     ports:
       - "9114:4040"
