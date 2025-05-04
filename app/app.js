@@ -1,7 +1,19 @@
 const express = require('express');
 const { Client } = require('pg');
+const clientProm = require('prom-client');
 const app = express();
 const port = 3001;
+
+// --- Prometheus Metrics 設定 ---
+// デフォルトのプロセスメトリクス収集を有効化
+clientProm.collectDefaultMetrics();
+
+// カスタムメトリクス例
+const httpRequestCounter = new clientProm.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code'],
+});
 
 // --- カスタムエラークラス定義 ---
 class AppError extends Error {
@@ -25,6 +37,25 @@ client.connect(err => {
   } else {
     console.log('Connected to PostgreSQL');
   }
+});
+
+
+// --- ミドルウェアでリクエストごとにカウント ---
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    httpRequestCounter.inc({
+      method: req.method,
+      route: req.route ? req.route.path : req.path,
+      status_code: res.statusCode,
+    });
+  });
+  next();
+});
+
+// --- /metricsエンドポイント追加 ---
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', clientProm.register.contentType);
+  res.end(await clientProm.register.metrics());
 });
 
 // --- ルート（HTMLページを返す） ---
