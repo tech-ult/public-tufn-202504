@@ -91,3 +91,61 @@ groups:
         annotations:
           summary: "High latency detected on health endpoint"
           description: "The /health endpoint at web api is taking more than 5 seconds to respond."
+
+  - name: webapp_alerts
+    rules:
+      - alert: WebappHttp5xxErrors # Webアプリケーションで5xxエラーが発生した場合のアラート
+        expr: increase(http_requests_total{status=~"5.."}[5m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "5xx Errors Detected on Webapp"
+          description: "One or more HTTP 5xx errors were detected in the web application."
+
+      - alert: WebappHighLatency # Webアプリケーションの95%のリクエストのレイテンシが1秒超えた場合のアラート
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency detected"
+          description: "95% of requests to webapp are taking longer than 1 second."
+
+      - alert: WebappMemoryUsageHigh # Webアプリケーションのメモリ使用量が500MBを超えた場合のアラート
+        expr: process_resident_memory_bytes > 500000000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected on webapp"
+          description: "Webapp process memory usage is over 500MB."
+
+      - alert: WebappCpuUsageHigh # WebアプリケーションのCPU使用率が80%を超えた場合のアラート
+        expr: rate(process_cpu_seconds_total[1m]) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected on webapp"
+          description: "Webapp CPU usage is over 80%."
+
+      - alert: WebappEventLoopLagHigh # Webアプリケーションのイベントループの遅延が0.5秒を超えた場合のアラート
+        expr: nodejs_eventloop_lag_seconds > 0.5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Event loop lag detected on webapp"
+          description: "Event loop lag exceeds 0.5 seconds in webapp."
+
+  - name: pushgateway_alerts
+    rules:
+      - alert: PushJobDurationTooLong
+        expr: push_time_seconds > 10  # ジョブ実行時間が10秒を超えたら
+        for: 0s  # すぐにアラートを発火
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pushgateway job duration too long"
+          description: "A push job took more than 10 seconds to complete. Duration: {{ $value }}s"
