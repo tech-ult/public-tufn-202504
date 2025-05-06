@@ -31,3 +31,34 @@ pg_slow_queries:
     - query:
         usage: "LABEL"
         description: "Query text"
+
+pg_stat_statements:
+  query: |
+    SELECT
+      queryid,
+      query,
+      calls,
+      total_exec_time AS total_time,
+      mean_exec_time AS mean_time,
+      rows
+    FROM
+      pg_stat_statements
+  metrics:
+    - queryid:
+        usage: "LABEL"
+        description: "Query ID"
+    - query:
+        usage: "LABEL"
+        description: "Normalized query text"
+    - calls:
+        usage: "COUNTER"
+        description: "Number of times this query was called"
+    - total_time:
+        usage: "COUNTER"
+        description: "Total time spent executing this query"
+    - mean_time:
+        usage: "GAUGE"
+        description: "Mean time per execution of this query"
+    - rows:
+        usage: "COUNTER"
+        description: "Total number of rows retrieved or affected"
