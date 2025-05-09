@@ -1,0 +1,64 @@
+pg_slow_queries:
+  query: |
+    SELECT
+      datname AS database,
+      pid,
+      usename AS user,
+      application_name,
+      EXTRACT(EPOCH FROM now() - query_start) AS duration,
+      query
+    FROM pg_stat_activity
+    WHERE state = 'active'
+      AND now() - query_start > '3 seconds'::interval
+      AND query != '<IDLE>'
+      AND query NOT ILIKE '%pg_stat_activity%'
+  metrics:
+    - database:
+        usage: "LABEL"
+        description: "Database name"
+    - user:
+        usage: "LABEL"
+        description: "User name"
+    - pid:
+        usage: "LABEL"
+        description: "Process ID"
+    - application_name:
+        usage: "LABEL"
+        description: "Application name"
+    - duration:
+        usage: "GAUGE"
+        description: "Query duration in seconds"
+    - query:
+        usage: "LABEL"
+        description: "Query text"
+
+pg_stat_statements:
+  query: |
+    SELECT
+      queryid,
+      query,
+      calls,
+      total_exec_time AS total_time,
+      mean_exec_time AS mean_time,
+      rows
+    FROM
+      pg_stat_statements
+  metrics:
+    - queryid:
+        usage: "LABEL"
+        description: "Query ID"
+    - query:
+        usage: "LABEL"
+        description: "Normalized query text"
+    - calls:
+        usage: "COUNTER"
+        description: "Number of times this query was called"
+    - total_time:
+        usage: "COUNTER"
+        description: "Total time spent executing this query"
+    - mean_time:
+        usage: "GAUGE"
+        description: "Mean time per execution of this query"
+    - rows:
+        usage: "COUNTER"
+        description: "Total number of rows retrieved or affected"

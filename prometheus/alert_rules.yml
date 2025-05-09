@@ -1,0 +1,151 @@
+groups:
+  - name: node_alerts             # アラートグループの名前。複数のアラートルールをグループ化するための名前
+    rules:                        # このグループに関連付けられたアラートルールのリスト
+      - alert: HighCPUUsage       # アラートの名前。Slackなどで通知される名前
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80  # 80%を超えるCPU使用率
+        #expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 1  # CPU使用率が1%を超える場合にアラート
+        for: 2m                   # この条件を2分間満たし続ける場合にアラートを発火させる
+        #for: 1m                   # この条件を1分間満たし続ける場合にアラートを発火させる
+        labels:
+          severity: warning       # アラートの重大度を "warning"（警告）に設定。例えば、Slackの通知で表示される
+        annotations:
+          summary: "High CPU usage detected on {{ $labels.instance }}"    # アラート通知の概要（例: "node1"で高いCPU使用率を検出）
+          description: "CPU usage is above 80% for more than 2 minutes."  # アラートの詳細説明。実際に発火する条件（CPU使用率が80%を超えた場合）
+
+  - name: nginx_alerts
+    rules:
+      - alert: AnyHttp5xxErrorDetected   # 5xxエラーが1回でも発生した場合のアラート
+        expr: |
+          sum(rate(nginx_http_response_count_total{status=~"5.."}[30s])) > 0
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx error detected"
+          description: "At least one HTTP 5xx error occurred in the last 30 seconds."
+
+      - alert: HighHttp4xxErrorRate    # 4xxエラー率が高い場合のアラート
+        expr: |
+          (sum(rate(nginx_http_response_count_total{status=~"4.."}[1m])))
+          /
+          (sum(rate(nginx_http_response_count_total[1m])))
+          > 0.10
+#        for: 2m
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 4xx error rate detected"
+          description: "The HTTP 4xx error rate has exceeded 10% over the past 2 minutes."
+
+  # PostgreSQLのスロークエリアラート用に新しいグループを追加
+  - name: postgres_alerts
+    rules:
+      # スロークエリを検知するアラート
+      - alert: PostgresSlowQuery
+        expr: max_over_time(pg_slow_queries_duration[1m]) > 5  # 過去1分間のうち、5秒以上実行されているクエリを検知
+#        expr: pg_slow_queries_duration > 1  # 1秒以上実行されているクエリを検知
+        for: 0s  # 検知したらすぐにアラート
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow PostgreSQL query detected"
+          description: "Database: {{ $labels.database }}, User: {{ $labels.user }}, Query duration: {{ $value }}s, Query: {{ $labels.query }}"
+
+      # 長時間（30秒以上）実行されているクエリに対する重大アラート
+      - alert: PostgresCriticalSlowQuery
+        expr: pg_slow_queries_duration > 30  # 30秒以上実行されているクエリを検知
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical slow PostgreSQL query detected"
+          description: "Database: {{ $labels.database }}, User: {{ $labels.user }}, Query duration: {{ $value }}s, Query: {{ $labels.query }}"
+
+      # アクティブな接続数が多い場合のアラート
+      - alert: PostgresHighConnections
+        expr: pg_stat_activity_count > 100  # 接続数が100を超えた場合
+        for: 5m  # 5分間継続した場合
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of PostgreSQL connections"
+          description: "Database {{ $labels.datname }} has {{ $value }} active connections"
+
+  - name: blackbox_alerts
+    rules:
+      - alert: HealthEndpointDown
+        expr: probe_success{instance="http://nginx/health"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Health endpoint is down"
+          description: "The /health endpoint at web api has been failing for more than 1 minute."
+
+      - alert: HealthEndpointHighLatency
+        expr: probe_duration_seconds{instance="http://nginx/health"} > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected on health endpoint"
+          description: "The /health endpoint at web api is taking more than 5 seconds to respond."
+
+  - name: webapp_alerts
+    rules:
+      - alert: WebappHttp5xxErrors # Webアプリケーションで5xxエラーが発生した場合のアラート
+        expr: increase(http_requests_total{status=~"5.."}[5m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "5xx Errors Detected on Webapp"
+          description: "One or more HTTP 5xx errors were detected in the web application."
+
+      - alert: WebappHighLatency # Webアプリケーションの95%のリクエストのレイテンシが1秒超えた場合のアラート
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency detected"
+          description: "95% of requests to webapp are taking longer than 1 second."
+
+      - alert: WebappMemoryUsageHigh # Webアプリケーションのメモリ使用量が500MBを超えた場合のアラート
+        expr: process_resident_memory_bytes > 500000000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected on webapp"
+          description: "Webapp process memory usage is over 500MB."
+
+      - alert: WebappCpuUsageHigh # WebアプリケーションのCPU使用率が80%を超えた場合のアラート
+        expr: rate(process_cpu_seconds_total[1m]) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected on webapp"
+          description: "Webapp CPU usage is over 80%."
+
+      - alert: WebappEventLoopLagHigh # Webアプリケーションのイベントループの遅延が0.5秒を超えた場合のアラート
+        expr: nodejs_eventloop_lag_seconds > 0.5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Event loop lag detected on webapp"
+          description: "Event loop lag exceeds 0.5 seconds in webapp."
+
+  - name: pushgateway_alerts
+    rules:
+      - alert: PushJobDurationTooLong
+        expr: push_time_seconds > 10  # ジョブ実行時間が10秒を超えたら
+        for: 0s  # すぐにアラートを発火
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pushgateway job duration too long"
+          description: "A push job took more than 10 seconds to complete. Duration: {{ $value }}s"

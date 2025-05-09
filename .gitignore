@@ -1,0 +1,6 @@
+.env
+nginx/logs/*
+!nginx/logs/.gitkeep
+grafana/data/*
+!grafana/data/.gitkeep
+app/node_modules/
