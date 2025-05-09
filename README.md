@@ -6,7 +6,7 @@
 
 ![概要図](document/overview.png)
 
-### 環境構築
+## 環境構築
 
 Dockerコンテナを使用して、Prometheusの監視環境を構築する。
 
@@ -75,3 +75,10 @@ db4695df292e   postgres:latest                                         "docker-e
 |11|postgres_exporter|PostgreSQLのスロークエリ等のメトリクスを収集する。|
 |12|blackbox_exporter|外形監視でサービスの生存確認やエンドポイントごとのレイテンシー等のメトリクスを収集する。|
 
+## 主な設定ファイル
+
+|No.|設定ファイル名|設定内容|
+|:--|:--|:--|
+|1|[prometheus/prometheus.yml](prometheus/prometheus.yml)|メトリクス収集対象のExporter定義、メトリクス収集間隔定義|
+|2|[prometheus/alert_rules.yml](prometheus/alert_rules.yml)|PromQLによるアラート条件の定義。閾値超過した状態がどれくらい継続したらアラートを発報するか、などを設定する。|
+|3|[alertmanager/alertmanager.yml](alertmanager/alertmanager.yml)|アラートの通知先やアラートメッセージの他、複数のアラートをグルーピングしたり、同一グループのアラートの再送通知間隔などを設定する。
