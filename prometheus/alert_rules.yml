@@ -142,10 +142,10 @@ groups:
   - name: pushgateway_alerts
     rules:
       - alert: PushJobDurationTooLong
-        expr: push_time_seconds > 10  # ジョブ実行時間が10秒を超えたら
+        expr: batch_duration_seconds{exported_job=~"sample_.*"} > 10 # ジョブ実行時間が10秒を超えたら
         for: 0s  # すぐにアラートを発火
         labels:
           severity: warning
         annotations:
           summary: "Pushgateway job duration too long"
-          description: "A push job took more than 10 seconds to complete. Duration: {{ $value }}s"
+          description: "A push job took more than 10 seconds to complete. Duration: {{ $value }}s, Job: {{ $labels.exported_job }}"

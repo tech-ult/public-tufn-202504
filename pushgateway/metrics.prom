@@ -1,4 +1,0 @@
-# HELP job_duration_seconds Duration of job in seconds.
-# TYPE job_duration_seconds gauge
-job_duration_seconds{job="batch_process"} 3.14
-#job_duration_seconds{job="batch_process"} 15.0
