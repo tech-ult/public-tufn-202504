@@ -1,0 +1,264 @@
+global:
+  # アラートが解決された（Resolved）通知を送るまでに待つ時間
+  resolve_timeout: 5m
+  # Slackの設定（SlackのIncoming Webhook URLを設定）
+  slack_api_url: 'https://hooks.slack.com/services/TXXXXXXXX/BXXXXXXXX/XXXXXXXXXXXXXXXXXXXXXXXX'
+
+# 通知のルーティング設定
+route:
+  # デフォルトのレシーバー
+  receiver: 'slack-general-alerts'
+  
+  # グループ化の設定
+  group_by: ['alertname', 'severity']
+  group_wait: 10s       # 初回通知の待機時間
+#  group_wait: 0s       # 初回通知の待機時間
+  group_interval: 5m    # 同一グループの通知間隔
+#  group_interval: 5s    # 同一グループの通知間隔
+  repeat_interval: 1h   # 解決していないアラートの再通知間隔
+#  repeat_interval: 5s   # 解決していないアラートの再通知間隔
+  
+  # チーム別のルート設定
+  routes:
+  # Nginxアラート用のルート設定
+  - match_re:
+      alertname: (AnyHttp5xxErrorDetected|HighHttp4xxErrorRate)
+    receiver: 'slack-nginx-team'
+    group_by: ['alertname', 'job']
+    group_wait: 5s      # Webサーバーのエラーは迅速に通知
+#    group_wait: 0s      # Webサーバーのエラーは迅速に通知
+    group_interval: 2m
+#    group_interval: 5s
+    repeat_interval: 30m
+    # 特定のエラータイプに対する細かいルーティング
+    routes:
+    - match:
+        alertname: AnyHttp5xxErrorDetected
+        severity: critical
+      receiver: 'slack-nginx-emergency'
+      group_wait: 0s    # 5xxエラーは即時通知
+      repeat_interval: 5m
+#      repeat_interval: 5s
+  
+  # PostgreSQLのスロークエリ用のルート設定
+  - match_re:
+      alertname: (PostgresSlowQuery|PostgresCriticalSlowQuery|PostgresHighConnections)
+    receiver: 'slack-db-team'
+    group_by: ['alertname', 'database']
+    group_wait: 5s
+    repeat_interval: 15m
+    # クリティカルなスロークエリは別扱い
+    routes:
+    - match:
+        alertname: PostgresCriticalSlowQuery
+      receiver: 'slack-db-emergency'
+      group_wait: 0s
+      repeat_interval: 1m
+  
+  # ノード（サーバー）関連のアラート用ルート設定
+  - match_re:
+      alertname: (HighCPUUsage)
+    receiver: 'slack-infra-team'
+    group_by: ['alertname', 'instance']
+    group_wait: 30s
+    repeat_interval: 1h
+
+  # Blackbox Exporterのヘルスチェックアラート用ルート
+  - match_re:
+      alertname: (HealthEndpointDown|HealthEndpointHighLatency)
+    receiver: 'slack-blackbox-team'
+    group_by: ['alertname', 'instance']
+    group_wait: 10s
+    repeat_interval: 30m
+
+  # Webappのアラート用のルート設定
+  - match_re:
+      alertname: (WebappHttp5xxErrors|WebappHighLatency|WebappMemoryUsageHigh|WebappCpuUsageHigh|WebappEventLoopLagHigh)
+    receiver: 'slack-webapp-team'
+    group_by: ['alertname', 'instance']
+    group_wait: 10s
+    group_interval: 2m
+    repeat_interval: 30m
+
+  # Pushgatewayのアラート用ルート設定
+  - match_re:
+      alertname: PushJobDurationTooLong
+    receiver: 'slack-pushgateway-team'
+    group_by: ['alertname', 'job']
+    group_wait: 5s
+    repeat_interval: 30m
+
+
+# 受信者の設定
+receivers:
+# 汎用アラート受信設定
+- name: 'slack-general-alerts'
+  slack_configs:
+  - channel: '#alert'
+    # アラートが解決されたときにも通知を送るかどうか
+    send_resolved: true
+    title: "{{ .GroupLabels.alertname }}"
+    text: |
+      {{ range .Alerts }}
+      *Alert:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Severity:* {{ .Labels.severity }}
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+
+# Nginx専用チャンネル
+- name: 'slack-nginx-team'
+  slack_configs:
+#  - channel: '#nginx-alerts'
+  - channel: '#alert'
+    send_resolved: true
+    title: "[NGINX] {{ .GroupLabels.alertname }}"
+    icon_emoji: ':nginx:'
+    color: '{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}#FF0000{{ else }}#FFFF00{{ end }}{{ else }}#00FF00{{ end }}'
+    text: |
+      {{ range .Alerts }}
+      *Alert:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Severity:* {{ .Labels.severity }}
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+
+# Nginx緊急アラート
+- name: 'slack-nginx-emergency'
+  slack_configs:
+#  - channel: '#nginx-critical'
+  - channel: '#alert'
+    send_resolved: true
+    title: "[URGENT] :rotating_light: {{ .GroupLabels.alertname }}"
+    icon_emoji: ':rotating_light:'
+    color: '#FF0000'
+    text: |
+      {{ range .Alerts }}
+      *CRITICAL ALERT:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+
+# DB専用チャンネル
+- name: 'slack-db-team'
+  slack_configs:
+#  - channel: '#db-alerts'
+  - channel: '#alert'
+    send_resolved: true
+    title: "[DB] {{ .GroupLabels.alertname }}"
+    icon_emoji: ':database:'
+    color: '{{ if eq .Status "firing" }}#FFA500{{ else }}#00FF00{{ end }}'
+    text: |
+      {{ range .Alerts }}
+      *Alert:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Database:* {{ .Labels.database }}
+      *User:* {{ .Labels.user }}
+      {{ if .Annotations.query }}*Query:* `{{ .Annotations.query }}`{{ end }}
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+
+# DB緊急アラート
+- name: 'slack-db-emergency'
+  slack_configs:
+#  - channel: '#db-critical'
+  - channel: '#alert'
+    send_resolved: true
+    title: "[URGENT] :boom: {{ .GroupLabels.alertname }}"
+    icon_emoji: ':boom:'
+    color: '#FF0000'
+    text: |
+      {{ range .Alerts }}
+      *CRITICAL DB ALERT:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Database:* {{ .Labels.database }}
+      *User:* {{ .Labels.user }}
+      *Query Duration:* {{ .Value }} seconds
+      *Query:* `{{ .Labels.query | limitBytes 800 }}`
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+      
+# インフラチーム向け
+- name: 'slack-infra-team'
+  slack_configs:
+#  - channel: '#infra-alerts'
+  - channel: '#alert'
+    send_resolved: true
+    title: "[INFRA] {{ .GroupLabels.alertname }}"
+    icon_emoji: ':computer:'
+    color: '{{ if eq .Status "firing" }}#FFA500{{ else }}#00FF00{{ end }}'
+    text: |
+      {{ range .Alerts }}
+      *Alert:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Instance:* {{ .Labels.instance }}
+      *Severity:* {{ .Labels.severity }}
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+
+- name: 'slack-webapp-team'
+  slack_configs:
+  - channel: '#alert'  # 必要なら '#webapp-alerts' にする
+    send_resolved: true
+    title: "[WEBAPP] {{ .GroupLabels.alertname }}"
+    icon_emoji: ':globe_with_meridians:'
+    color: '{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}#FF0000{{ else }}#FFA500{{ end }}{{ else }}#00FF00{{ end }}'
+    text: |
+      {{ range .Alerts }}
+      *Alert:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Severity:* {{ .Labels.severity }}
+      *Instance:* {{ .Labels.instance }}
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+
+- name: 'slack-blackbox-team'
+  slack_configs:
+  - channel: '#alert'  # 適宜、専用チャンネル '#blackbox-alerts' などにしてもOK
+    send_resolved: true
+    title: "[BLACKBOX] {{ .GroupLabels.alertname }}"
+    icon_emoji: ':satellite_antenna:'
+    color: '{{ if eq .Status "firing" }}#FFA500{{ else }}#00FF00{{ end }}'
+    text: |
+      {{ range .Alerts }}
+      *Alert:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Instance:* {{ .Labels.instance }}
+      *Severity:* {{ .Labels.severity }}
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+
+- name: 'slack-pushgateway-team'
+  slack_configs:
+  - channel: '#alert'  # 必要なら '#pushgateway-alerts' とか分けてもいい
+    send_resolved: true
+    title: "[PUSHGATEWAY] {{ .GroupLabels.alertname }}"
+    icon_emoji: ':package:'
+    color: '{{ if eq .Status "firing" }}#FFA500{{ else }}#00FF00{{ end }}'
+    text: |
+      {{ range .Alerts }}
+      *Alert:* {{ .Annotations.summary }}
+      *Description:* {{ .Annotations.description }}
+      *Job:* {{ .Labels.job }}
+      *Instance:* {{ .Labels.instance }}
+      *Severity:* {{ .Labels.severity }}
+      *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+      {{ end }}
+
+
+# 抑制設定（例：重大なアラートが発生している間、関連する警告レベルのアラートを抑制）
+inhibit_rules:
+# 5xxエラーがある場合、同じインスタンスの4xxエラーアラートは抑制
+- source_match:
+    alertname: 'AnyHttp5xxErrorDetected'
+    severity: 'critical'
+  target_match:
+    alertname: 'HighHttp4xxErrorRate'
+  equal: ['instance']
+
+# 重大なスロークエリアラートがある場合、通常のスロークエリアラートを抑制
+- source_match:
+    alertname: 'PostgresCriticalSlowQuery'
+  target_match:
+    alertname: 'PostgresSlowQuery'
+  equal: ['database', 'user']
