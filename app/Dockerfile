@@ -6,7 +6,8 @@ WORKDIR /usr/src/app
 
 # 必要なパッケージをインストール
 COPY package*.json ./
-RUN npm install  # コンテナ内で依存関係をインストール
+# コンテナ内で依存関係をインストール
+RUN npm install
 
 # アプリケーションのソースコードをコピー
 COPY . .
@@ -18,4 +19,4 @@ RUN chmod +x /usr/local/bin/wait-for-it.sh
 EXPOSE 3001
 
 # アプリケーションを起動 (PostgreSQLが起動するまで待機)
-CMD ["bash", "wait-for-it.sh", "postgres:5432", "-t", "60", "--", "node", "app.js"]
+CMD ["bash", "wait-for-it.sh", "postgres:5432", "-t", "120", "--", "node", "app.js"]

@@ -57,3 +57,8 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: blackbox_exporter:9115  # Blackbox Exporterに問い合わせる
+
+  # Node.js Exporter（Node.jsのメトリクス）
+  - job_name: 'webapp'
+    static_configs:
+      - targets: ['webapp:3001']
