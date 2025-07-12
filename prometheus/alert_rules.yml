@@ -94,14 +94,15 @@ groups:
 
   - name: webapp_alerts
     rules:
+      # === HTTP関連のアラート ===
       - alert: WebappHttp5xxErrors # Webアプリケーションで5xxエラーが発生した場合のアラート
-        expr: increase(http_requests_total{status=~"5.."}[5m]) > 0
+        expr: increase(http_requests_total{status_code=~"5.."}[5m]) > 0
         for: 0s
         labels:
           severity: critical
         annotations:
           summary: "5xx Errors Detected on Webapp"
-          description: "One or more HTTP 5xx errors were detected in the web application."
+          description: "One or more HTTP 5xx errors were detected in the web application on route {{ $labels.route }} with method {{ $labels.method }}."
 
       - alert: WebappHighLatency # Webアプリケーションの95%のリクエストのレイテンシが1秒超えた場合のアラート
         expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
@@ -112,6 +113,95 @@ groups:
           summary: "High request latency detected"
           description: "95% of requests to webapp are taking longer than 1 second."
 
+      - alert: WebappHighHttp4xxErrorRate # 4xxエラー率が高い場合のアラート
+        expr: |
+          (sum(rate(http_requests_total{status_code=~"4.."}[5m])) by (instance))
+          /
+          (sum(rate(http_requests_total[5m])) by (instance))
+          > 0.10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 4xx error rate detected on webapp"
+          description: "The HTTP 4xx error rate has exceeded 10% over the past 5 minutes on {{ $labels.instance }}."
+
+      # === データベース関連のアラート ===
+      - alert: WebappDatabaseConnectionLost # データベース接続が失われた場合のアラート
+        expr: database_connections_active == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection lost on webapp"
+          description: "The webapp has lost connection to the database."
+
+      - alert: WebappSlowDatabaseQueries # データベースクエリが遅い場合のアラート
+        expr: increase(slow_queries_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries detected on webapp"
+          description: "Slow database queries (>5 seconds) have been detected. Query type: {{ $labels.query_type }}."
+
+      - alert: WebappDatabaseQueryErrors # データベースクエリエラーが発生した場合のアラート
+        expr: increase(database_queries_total{status="error"}[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database query errors detected on webapp"
+          description: "Database query errors have been detected. Query type: {{ $labels.query_type }}."
+
+      - alert: WebappHighDatabaseQueryLatency # データベースクエリのレイテンシが高い場合のアラート
+        expr: histogram_quantile(0.95, rate(database_query_duration_seconds_bucket[5m])) > 2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database query latency detected on webapp"
+          description: "95% of database queries are taking longer than 2 seconds."
+
+      # === アプリケーションエラー関連のアラート ===
+      - alert: WebappApplicationErrors # アプリケーションエラーが発生した場合のアラート
+        expr: increase(application_errors_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Application errors detected on webapp"
+          description: "Application errors have been detected. Error type: {{ $labels.error_type }}, Endpoint: {{ $labels.endpoint }}, Severity: {{ $labels.severity }}."
+
+      - alert: WebappCriticalApplicationErrors # 重大なアプリケーションエラーが発生した場合のアラート
+        expr: increase(application_errors_total{severity="critical"}[5m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical application errors detected on webapp"
+          description: "Critical application errors have been detected. Error type: {{ $labels.error_type }}, Endpoint: {{ $labels.endpoint }}."
+
+      - alert: WebappHighMemoryUsageError # メモリ使用量エラーが発生した場合のアラート
+        expr: increase(application_errors_total{error_type="high_memory_usage"}[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage error detected on webapp"
+          description: "The webapp is experiencing high memory usage errors."
+
+      # === ヘルスチェック関連のアラート ===
+      - alert: WebappHealthCheckFailed # ヘルスチェックが失敗した場合のアラート
+        expr: health_check_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Webapp health check failed"
+          description: "The webapp health check has been failing for more than 1 minute."
+
+      # === システムリソース関連のアラート ===
       - alert: WebappMemoryUsageHigh # Webアプリケーションのメモリ使用量が500MBを超えた場合のアラート
         expr: process_resident_memory_bytes > 500000000
         for: 2m
@@ -119,7 +209,7 @@ groups:
           severity: warning
         annotations:
           summary: "High memory usage detected on webapp"
-          description: "Webapp process memory usage is over 500MB."
+          description: "Webapp process memory usage is over 500MB ({{ $value | humanize1024 }})."
 
       - alert: WebappCpuUsageHigh # WebアプリケーションのCPU使用率が80%を超えた場合のアラート
         expr: rate(process_cpu_seconds_total[1m]) > 0.8
@@ -128,7 +218,7 @@ groups:
           severity: warning
         annotations:
           summary: "High CPU usage detected on webapp"
-          description: "Webapp CPU usage is over 80%."
+          description: "Webapp CPU usage is over 80% ({{ $value | humanizePercentage }})."
 
       - alert: WebappEventLoopLagHigh # Webアプリケーションのイベントループの遅延が0.5秒を超えた場合のアラート
         expr: nodejs_eventloop_lag_seconds > 0.5
@@ -137,15 +227,40 @@ groups:
           severity: warning
         annotations:
           summary: "Event loop lag detected on webapp"
-          description: "Event loop lag exceeds 0.5 seconds in webapp."
+          description: "Event loop lag exceeds 0.5 seconds in webapp ({{ $value }}s)."
+
+      # === ユーザーアクション関連のアラート ===
+      - alert: WebappLowUserActivity # ユーザーアクティビティが低い場合のアラート（5分間でリクエストが10未満）※監視系エンドポイントを除外
+        #expr: rate(user_actions_total{endpoint!~"/health|/schema|/metrics|/status"}[5m]) * 300 < 10
+        expr: rate(user_actions_total[5m]) * 300 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low user activity detected on webapp"
+          description: "User activity is unusually low. Less than 10 requests in the past 5 minutes."
+
+      - alert: WebappHighErrorRate # 全体的なエラー率が高い場合のアラート
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"[45].."}[5m])) by (instance)
+            /
+            sum(rate(http_requests_total[5m])) by (instance)
+          ) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected on webapp"
+          description: "The overall error rate (4xx + 5xx) has exceeded 5% over the past 5 minutes on {{ $labels.instance }}."
 
   - name: pushgateway_alerts
     rules:
       - alert: PushJobDurationTooLong
-        expr: push_time_seconds > 10  # ジョブ実行時間が10秒を超えたら
+        expr: batch_duration_seconds{exported_job=~"sample_.*"} > 10 # ジョブ実行時間が10秒を超えたら
         for: 0s  # すぐにアラートを発火
         labels:
           severity: warning
         annotations:
           summary: "Pushgateway job duration too long"
-          description: "A push job took more than 10 seconds to complete. Duration: {{ $value }}s"
+          description: "A push job took more than 10 seconds to complete. Duration: {{ $value }}s, Job: {{ $labels.exported_job }}"

@@ -14,8 +14,8 @@ Dockerコンテナを使用して、Prometheusの監視環境を構築する。
 
 ```bash
 # リポジトリクローン
-$ git pull https://github.com/tech-ult/tufn-202504.git
-$ cd tufn-202504
+$ git pull https://github.com/tech-ult/public-tufn-202504.git
+$ cd public-tufn-202504
 ```
 
 2. SLACKの通知先設定
@@ -43,19 +43,19 @@ $ docker compose build --no-cache
 $ docker compose up -d
 # 12プロセス起動確認
 $ docker ps
-CONTAINER ID   IMAGE                                                   COMMAND                  CREATED         STATUS         PORTS                                                                      NAMES
-47fdacd65f02   tufn-202504-nginx                                       "bash -c '/usr/local…"   3 minutes ago   Up 3 minutes   0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp   nginx_server
-87675b95eaa4   tufn-202504-webapp                                      "docker-entrypoint.s…"   3 minutes ago   Up 3 minutes   0.0.0.0:3001->3001/tcp, :::3001->3001/tcp                                  nodejs_webapp
-c84a224d02be   nginx/nginx-prometheus-exporter:latest                  "/usr/bin/nginx-prom…"   3 days ago      Up 3 minutes   0.0.0.0:9113->9113/tcp, :::9113->9113/tcp                                  nginx_exporter
-774549c9a274   quay.io/martinhelmich/prometheus-nginxlog-exporter:v1   "/prometheus-nginxlo…"   3 days ago      Up 3 minutes   0.0.0.0:9114->4040/tcp, [::]:9114->4040/tcp                                nginx_log_exporter
-39a6d8c65550   grafana/grafana                                         "/run.sh"                3 days ago      Up 3 minutes   0.0.0.0:3000->3000/tcp, :::3000->3000/tcp                                  grafana
-c94f40524ed5   prometheuscommunity/postgres-exporter                   "/bin/postgres_expor…"   3 days ago      Up 3 minutes   9187/tcp                                                                   postgres_exporter
-29356d0e014b   prom/prometheus                                         "/bin/prometheus --c…"   3 days ago      Up 3 minutes   0.0.0.0:9090->9090/tcp, :::9090->9090/tcp                                  prometheus
-ccc500225e63   prom/blackbox-exporter                                  "/bin/blackbox_expor…"   3 days ago      Up 3 minutes   0.0.0.0:9115->9115/tcp, :::9115->9115/tcp                                  blackbox_exporter
-b9718554216e   prom/pushgateway                                        "/bin/pushgateway"       3 days ago      Up 3 minutes   0.0.0.0:9091->9091/tcp, :::9091->9091/tcp                                  pushgateway
-db4695df292e   postgres:latest                                         "docker-entrypoint.s…"   3 days ago      Up 3 minutes   0.0.0.0:5432->5432/tcp, :::5432->5432/tcp                                  postgres_server
-8826844bc605   prom/alertmanager                                       "/bin/alertmanager -…"   3 days ago      Up 3 minutes   0.0.0.0:9093->9093/tcp, :::9093->9093/tcp                                  alertmanager
-124f28d4265d   prom/node-exporter                                      "/bin/node_exporter …"   3 days ago      Up 3 minutes   0.0.0.0:9100->9100/tcp, :::9100->9100/tcp                                  node_exporter
+CONTAINER ID   IMAGE                                                   COMMAND                  CREATED          STATUS          PORTS                                                                      NAMES
+cbd7def12724   nginx/nginx-prometheus-exporter:latest                  "/usr/bin/nginx-prom…"   11 seconds ago   Up 9 seconds    0.0.0.0:9113->9113/tcp, :::9113->9113/tcp                                  nginx_exporter
+d67ba5ee2867   quay.io/martinhelmich/prometheus-nginxlog-exporter:v1   "/prometheus-nginxlo…"   11 seconds ago   Up 9 seconds    0.0.0.0:9114->4040/tcp, [::]:9114->4040/tcp                                nginx_log_exporter
+13a2eb7f6296   public-tufn-202504-nginx                                "bash -c '/usr/local…"   11 seconds ago   Up 9 seconds    0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp   nginx_server
+bc555c4d5888   public-tufn-202504-webapp                               "docker-entrypoint.s…"   11 seconds ago   Up 9 seconds    0.0.0.0:3001->3001/tcp, :::3001->3001/tcp                                  nodejs_webapp
+553bfd5b0052   grafana/grafana                                         "/run.sh"                11 seconds ago   Up 9 seconds    0.0.0.0:3000->3000/tcp, :::3000->3000/tcp                                  grafana
+821f0c379d7c   prom/pushgateway                                        "/bin/pushgateway"       11 seconds ago   Up 10 seconds   0.0.0.0:9091->9091/tcp, :::9091->9091/tcp                                  pushgateway
+22dd5896e696   prom/node-exporter                                      "/bin/node_exporter …"   11 seconds ago   Up 10 seconds   0.0.0.0:9100->9100/tcp, :::9100->9100/tcp                                  node_exporter
+42a1dd9013a0   prom/alertmanager                                       "/bin/alertmanager -…"   11 seconds ago   Up 10 seconds   0.0.0.0:9093->9093/tcp, :::9093->9093/tcp                                  alertmanager
+8023234ce6f1   prom/blackbox-exporter                                  "/bin/blackbox_expor…"   11 seconds ago   Up 10 seconds   0.0.0.0:9115->9115/tcp, :::9115->9115/tcp                                  blackbox_exporter
+96db652de4ce   prom/prometheus                                         "/bin/prometheus --c…"   11 seconds ago   Up 10 seconds   0.0.0.0:9090->9090/tcp, :::9090->9090/tcp                                  prometheus
+b7f3e4a19890   postgres:latest                                         "docker-entrypoint.s…"   11 seconds ago   Up 10 seconds   0.0.0.0:5432->5432/tcp, :::5432->5432/tcp                                  postgres_server
+fada8e698e17   prometheuscommunity/postgres-exporter                   "/bin/postgres_expor…"   11 seconds ago   Up 10 seconds   9187/tcp                                                                   postgres_exporter
 ```
 
 ### Dockerコンテナ毎の役割
